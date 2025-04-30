@@ -23,7 +23,7 @@ const dbMock = [
     clientId: "123456",
 
     // automatico sistema
-    ngrokUrl: null,
+    newUrl: null,
     // automatico sistema
     hash: null,
   },
@@ -31,9 +31,9 @@ const dbMock = [
 
 app.post("/api/register-connection", async (req, res) => {
   try {
-    const { clientId, ngrokUrl, hash } = req.body;
+    const { clientId, newUrl, hash } = req.body;
 
-    if (!clientId || !ngrokUrl || !hash) {
+    if (!clientId || !newUrl || !hash) {
       return res.status(400).json({ error: "Invalid customer datas" });
     }
 
@@ -49,7 +49,8 @@ app.post("/api/register-connection", async (req, res) => {
       return res.status(401).json({ message: "Unauthorized user" });
     }
 
-    dbMock[0].ngrokUrl = ngrokUrl;
+    // Atualiza a url
+    dbMock[0].newUrl = newUrl;
 
     res.status(200).json({ message: "Successfully connected" });
   } catch (error) {
@@ -65,7 +66,7 @@ app.post("/api/login", async (req, res) => {
       return res.status(401).json({ message: "Unauthorized user" });
     }
 
-    if (!dbMock?.[0]?.ngrokUrl) {
+    if (!dbMock?.[0]?.newUrl) {
       return res.status(401).json({ message: "Local server not running" });
     }
 
@@ -76,7 +77,7 @@ app.post("/api/login", async (req, res) => {
     res.status(200).json({
       message: "Sucesso",
       userInfos: {
-        connectionUrl: dbMock?.[0]?.ngrokUrl,
+        connectionUrl: dbMock?.[0]?.newUrl,
         isUserBlocked: dbMock?.[0]?.isUserBlocked,
       },
     });
