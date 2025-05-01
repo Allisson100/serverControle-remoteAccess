@@ -1,6 +1,11 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const connectDB = require("./config/database");
+const { createUser } = require("./controllers/userController");
+const User = require("./models/User");
+
+connectDB();
 
 const app = express();
 
@@ -34,23 +39,29 @@ app.post("/api/register-connection", async (req, res) => {
     const { clientId, newUrl, hash } = req.body;
 
     if (!clientId || !newUrl || !hash) {
-      return res.status(400).json({ error: "Invalid customer datas" });
+      return res.status(400).json({ error: "Invalid customer data" });
     }
 
-    // buscar no banco se o hash não é null
-    // se não for null tem que setar no banco o que esta vindo da req, pois é o primeiro acesso
-    if (!dbMock?.[0]?.hash) {
-      dbMock[0].hash = hash;
+    // Busca o usuário com o clientId informado
+    const user = await User.findOne({ clientId: clientId });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    // Se o banco encontrar esse hash então deve compará-lo de acordo com o clientId
-    // Para saber se o cara não esta acessando de outro pc o servidor
-    if (dbMock?.find((mock) => mock?.clientId === clientId)?.hash !== hash) {
+    // Se o hash ainda não estiver salvo (primeiro acesso), salva agora
+    if (!user.hash) {
+      user.hash = hash;
+    }
+
+    // Se o hash do banco for diferente do enviado → tentativa de acesso não autorizada
+    if (user.hash !== hash) {
       return res.status(401).json({ message: "Unauthorized user" });
     }
 
-    // Atualiza a url
-    dbMock[0].newUrl = newUrl;
+    // Atualiza a URL de conexão
+    user.newUrl = newUrl;
+    await user.save();
 
     res.status(200).json({ message: "Successfully connected" });
   } catch (error) {
@@ -62,27 +73,41 @@ app.post("/api/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (dbMock?.[0]?.email !== email || dbMock?.[0]?.password !== password) {
+    const user = await User.findOne({ email });
+
+    if (!user || user.password !== password) {
       return res.status(401).json({ message: "Unauthorized user" });
     }
 
-    if (!dbMock?.[0]?.newUrl) {
+    if (!user.newUrl) {
       return res.status(401).json({ message: "Local server not running" });
     }
 
-    if (dbMock?.[0]?.isUserBlocked) {
+    if (user.isUserBlocked) {
       return res.status(401).json({ message: "User blocked" });
     }
 
     res.status(200).json({
       message: "Sucesso",
       userInfos: {
-        connectionUrl: dbMock?.[0]?.newUrl,
-        isUserBlocked: dbMock?.[0]?.isUserBlocked,
+        connectionUrl: user.newUrl,
+        isUserBlocked: user.isUserBlocked,
       },
     });
   } catch (error) {
-    res.status(500).json({ message: "Conexão registrada com sucesso" });
+    res.status(500).json({ message: "Erro interno no servidor" });
+  }
+});
+
+app.post("/users", async (req, res) => {
+  try {
+    const user = await createUser(req.body);
+    res.status(201).json(user);
+  } catch (error) {
+    console.error(error);
+    res
+      .status(400)
+      .json({ error: "Erro ao criar usuário", details: error.message });
   }
 });
 
