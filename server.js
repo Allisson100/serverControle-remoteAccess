@@ -87,6 +87,8 @@ app.post("/api/login", async (req, res) => {
       return res.status(401).json({ message: "User blocked" });
     }
 
+    console.log("user", user);
+
     res.status(200).json({
       message: "Sucesso",
       userInfos: {
